@@ -19,6 +19,7 @@ Execute `program.md` with the parameters and domain rules below.
 | B            | 2 |
 | eval_slots   | number of GPUs (1 on a single-GPU box — implementations may overlap, but training runs must queue) |
 | timeout      | 10 minutes per eval (training is budgeted at 5; kill and log as crash beyond 10) |
+| cost_guard   | `peak_vram_mb:+0.15` unless you intentionally allow more memory |
 | holdout_cmd  | none — `evaluate_bpb` in `prepare.py` is the single ground-truth metric; finishing re-runs eval_cmd on baseline and champion |
 | tag          | date-based, e.g. `jul6` |
 
@@ -34,9 +35,9 @@ instead of one greedy line.
 - `prepare.py` is read-only: it holds the fixed eval, data loading, tokenizer,
   and training constants. The eval is the ground truth; never touch it.
 - No new packages or dependencies beyond `pyproject.toml`.
-- VRAM is a soft constraint: also extract `grep '^peak_vram_mb:' run.log` and
-  include it in the tsv description; judge dramatic blowups as losses even
-  when val_bpb improves.
+- VRAM is a cost guard: extract `grep '^peak_vram_mb:' run.log`, log it with
+  `--cost peak_vram_mb=<value>`, and reduce with `--cost peak_vram_mb:+0.15`
+  unless you intentionally allow more memory.
 - Simplicity criterion: a 0.001 gain that adds 20 lines of hacky code is
   probably not worth it; an equal result from deleted code is a keep.
 
@@ -51,4 +52,5 @@ instead of one greedy line.
 > and re-run once.
 
 The orchestrator (you) then greps `run.log` in each worktree, logs each result
-with `amr.py log`, and reduces.
+with `amr.py log --cost peak_vram_mb=<value> --region <region>`, and reduces
+with `--cost peak_vram_mb:+0.15`.

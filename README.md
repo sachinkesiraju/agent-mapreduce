@@ -29,13 +29,14 @@ The repo has three important pieces:
 The loop:
 
 1. Run the baseline twice. The spread becomes the noise margin.
-2. Propose K ideas from the current frontier.
+2. Review artifacts and prior results, then propose K ideas from the current frontier.
 3. Create one git worktree per idea.
-4. Send one worker agent into each worktree. It implements one idea and runs the eval.
+4. Send one worker agent into each worktree. Every candidate uses the same eval split, seed if applicable, budget, and scoring command.
 5. The orchestrator greps scores from artifacts and logs every result.
-6. `amr.py reduce` keeps candidates that beat their own parent by more than the margin.
+6. `amr.py reduce` keeps candidates that beat their own parent by more than the margin and satisfy any cost guards.
 7. The top B survivors become the next frontier.
-8. Repeat.
+8. If survivors touch different regions, `amr.py` prints a combination candidate.
+9. Repeat. Final winner must revalidate on holdout before it ships.
 
 With K=4, B=2:
 
@@ -63,6 +64,7 @@ K:            4
 B:            2
 eval_slots:   <number of GPUs or contended eval resources>
 timeout:      <when to kill a stuck eval>
+cost_guard:   <optional, e.g. vram:+0.15>
 holdout_cmd:  <optional final eval>
 tag:          <run tag>
 ```
@@ -76,26 +78,26 @@ Read program.md and set up a new recursive agentic map-reduce experiment. Do the
 ## amr.py
 
 ```bash
-python3 amr.py log <gen> <commit> <parent> <score|-> <ran|crash|note> <description...>
-python3 amr.py reduce --gen <N> --beam <B> --margin <M> [--maximize]
+python3 amr.py log [--cost name=value] [--region name] <gen> <commit> <parent> <score|-> <ran|crash|note> <description...>
+python3 amr.py reduce --gen <N> --beam <B> --margin <M> [--maximize] [--cost name:+tol]
 python3 amr.py tree [--maximize]
 ```
 
 Example:
 
 ```bash
-python3 amr.py log 0 base000 - 0.998100 ran "baseline run 1"
-python3 amr.py log 0 base000 - 0.997900 ran "baseline run 2"
+python3 amr.py log --cost vram=44.0 0 base000 - 0.998100 ran "baseline run 1"
+python3 amr.py log --cost vram=44.0 0 base000 - 0.997900 ran "baseline run 2"
 
-python3 amr.py log 1 lr00400 base000 0.993200 ran "increase LR to 0.04"
-python3 amr.py log 1 gelu000 base000 0.996000 ran "replace SiLU with GeLU"
-python3 amr.py log 1 wide000 base000 - crash "double model width OOM"
+python3 amr.py log --cost vram=44.2 --region optimizer 1 lr00400 base000 0.993200 ran "increase LR to 0.04"
+python3 amr.py log --cost vram=44.1 --region architecture 1 gelu000 base000 0.996000 ran "replace SiLU with GeLU"
+python3 amr.py log --cost vram=80.0 --region architecture 1 wide000 base000 - crash "double model width OOM"
 
-python3 amr.py reduce --gen 1 --beam 2 --margin 0.0002
+python3 amr.py reduce --gen 1 --beam 2 --margin 0.0002 --cost vram:+0.15
 python3 amr.py tree
 ```
 
-Every candidate is compared to its own parent, not to a global baseline.
+Every candidate is compared to its own parent, not to a global baseline. `--cost vram:+0.15` means the candidate must also stay within 15% of its parent's VRAM.
 
 ## Generic example
 
