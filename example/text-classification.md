@@ -106,8 +106,21 @@ example are not signal.
 
 ## What a real run looked like
 
-Baseline lexicon scored 0.706667. Generation 1 proposed four different
-algorithms:
+Baseline lexicon scored 0.706667. From that single frontier node the agent
+proposes four ideas, each a different hypothesis about what drives the label
+and each in its own region:
+
+- **full lexicon** (`lexicon`): the baseline only knows four words; score with
+  all sixteen.
+- **naive bayes** (`model`): stop hand-picking words, let the training counts
+  weight every token.
+- **negation-aware lexicon** (`negation`): flip a word's polarity after "not"
+  or "never" to catch the traps.
+- **logistic regression** (`model`): learn per-word weights by gradient descent
+  instead of assuming them.
+
+One worker per idea rewrites `solver.py` in its own worktree, commits, and runs
+the eval. The orchestrator greps each score from `run.log` and logs it:
 
 ```bash
 python3 amr.py log --region lexicon  1 fulllex  base 0.920000 ran "full 16-word lexicon vote"
