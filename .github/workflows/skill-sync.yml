@@ -1,0 +1,21 @@
+name: skill-sync
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-skill-copies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify skill files match repo root
+        run: |
+          fail=0
+          for f in program.md amr.py; do
+            if ! diff -u "$f" "skills/agent-mapreduce/$f"; then
+              echo "::error file=skills/agent-mapreduce/$f::skills/agent-mapreduce/$f has drifted from ./$f — run: cp $f skills/agent-mapreduce/$f"
+              fail=1
+            fi
+          done
+          exit $fail
