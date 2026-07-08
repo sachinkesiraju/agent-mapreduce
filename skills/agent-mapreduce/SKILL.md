@@ -5,11 +5,11 @@ description: Run a recursive agentic map-reduce experiment - beam search over re
 
 # agent-mapreduce
 
-You are about to execute the program in `program.md` from [github.com/sachinkesiraju/agent-mapreduce](https://github.com/sachinkesiraju/agent-mapreduce). The skill is a thin launcher; the program is the contract.
+You are about to execute the program in `program.md`, which sits in this skill's directory alongside `amr.py`. The skill is a thin launcher; the program is the contract.
 
 ## Launch
 
-1. Get `amr.py` and `program.md` into the root of the target repo, unless they are already there: clone https://github.com/sachinkesiraju/agent-mapreduce.git to a temporary directory and copy the two files from it. Make sure `results.tsv` and eval logs are gitignored in the target repo.
+1. Copy `amr.py` and `program.md` from this skill's directory into the root of the target repo, unless they are already there. Make sure `results.tsv` and eval logs are gitignored in the target repo.
 2. Fill in the parameter table at the top of the copied `program.md`. Derive what you can from the repo itself (eval command, metric name, GPU count). Ask the user for anything you cannot derive - at minimum `eval_cmd`, `metric_grep`, and whether the metric is minimized or maximized.
 3. Confirm the filled-in parameters with the user once, then execute `program.md` exactly: resume check, baseline noise margin, then the generation loop. Do not modify `amr.py` or the loop itself - only the parameters and the target they point at.
 
