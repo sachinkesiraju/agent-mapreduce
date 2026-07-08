@@ -2,7 +2,7 @@
 
 Autoresearch as recursive agentic map-reduce.
 
-Karpathy's autoresearch loop tests one idea at a time:
+Karpathy's [autoresearch](https://github.com/karpathy/autoresearch) loop tests one idea at a time:
 
 ```text
 one idea -> eval -> keep/revert -> repeat
