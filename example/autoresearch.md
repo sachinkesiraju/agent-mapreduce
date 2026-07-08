@@ -61,6 +61,33 @@ dies; `wide000` crashed. Because the survivors touch disjoint regions
 LR 0.04 + GeLU as one extra candidate in generation 2. The OOM crash is worth
 a law: `python3 amr.py log 1 - - - note "LAW: 2x d_model OOMs on this GPU"`.
 
+## Generation 2, and the fuse paying off
+
+Gen 2 recurses from both survivors and adds the suggested combination. Each
+child is scored against its own parent:
+
+```bash
+python3 amr.py log --cost peak_vram_mb=44150 --region architecture,optimizer 2 fuse000 lr00400 0.991800 ran "LR 0.04 + GeLU (fuse candidate)"
+python3 amr.py log --cost peak_vram_mb=44100 --region optimizer              2 cos0000 lr00400 0.993100 ran "cosine LR decay"
+python3 amr.py log --cost peak_vram_mb=52000 --region architecture           2 qknorm0 gelu000 0.994500 ran "add QK-norm"
+python3 amr.py log --cost peak_vram_mb=44050 --region regularization         2 drop010 gelu000 0.995950 ran "dropout 0.1"
+```
+
+```bash
+$ python3 amr.py reduce --gen 2 --beam 2 --margin 0.0002 --cost peak_vram_mb:+0.15
+COST_FAIL	qknorm0	peak_vram_mb 52000 > 50657.5	add QK-norm
+gen 2: 4 candidates, 1 beat their parent (margin 0.0002, 1 failed cost guards), keeping 1
+KEEP	fuse000	0.991800	(parent lr00400, delta -0.001400)	LR 0.04 + GeLU (fuse candidate)	regions=architecture,optimizer
+FRONTIER: fuse000
+```
+
+Three things happen at once here. The fuse candidate is the best node in the
+tree, so combining the two gen-1 branches actually paid off, which is not a
+given. `qknorm0` improved on its parent but asked for 18% more VRAM, over the
+15% guard, so `COST_FAIL` drops it before it can be ranked. `cos0000` and
+`drop010` land inside the noise margin and die. Only `fuse000` survives, so the
+beam narrows to one and the search continues down the combined line.
+
 ## Worker prompt template
 
 > You are one shard of a map-reduce experiment. Your worktree:
