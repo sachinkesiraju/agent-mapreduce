@@ -41,6 +41,26 @@ instead of one greedy line.
 - Simplicity criterion: a 0.001 gain that adds 20 lines of hacky code is
   probably not worth it; an equal result from deleted code is a keep.
 
+## What a first generation might look like
+
+Four single-variable ideas from the baseline, each tagged with the region it
+touches:
+
+```bash
+python3 amr.py log --cost peak_vram_mb=44100 --region optimizer    1 lr00400 base000 0.993200 ran "increase LR 0.02 -> 0.04"
+python3 amr.py log --cost peak_vram_mb=44050 --region architecture 1 gelu000 base000 0.996000 ran "replace SiLU with GeLU"
+python3 amr.py log --cost peak_vram_mb=44100 --region optimizer    1 warmup0 base000 0.997950 ran "add 100-step LR warmup"
+python3 amr.py log --cost peak_vram_mb=79800 --region architecture 1 wide000 base000 -        crash "double d_model, OOM at step 40"
+
+python3 amr.py reduce --gen 1 --beam 2 --margin 0.0002 --cost peak_vram_mb:+0.15
+```
+
+`lr00400` and `gelu000` survive; `warmup0` is within the noise margin and
+dies; `wide000` crashed. Because the survivors touch disjoint regions
+(optimizer, architecture), reduce prints a `FUSE_CANDIDATE` line: try
+LR 0.04 + GeLU as one extra candidate in generation 2. The OOM crash is worth
+a law: `python3 amr.py log 1 - - - note "LAW: 2x d_model OOMs on this GPU"`.
+
 ## Worker prompt template
 
 > You are one shard of a map-reduce experiment. Your worktree:

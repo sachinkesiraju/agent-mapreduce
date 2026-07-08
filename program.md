@@ -34,7 +34,8 @@ or the loop below — only the parameters and the target they point at.
    to reconstruct the frontier, and rejoin the loop from there. Never trust your
    memory of prior generations — the tsv and git are the only state.
 1. Confirm branch `amr/<tag>` does not exist; create it from the current
-   default branch. `results.tsv` stays untracked (see `.gitignore`).
+   default branch. Keep `results.tsv` and eval logs untracked — add them to
+   the target repo's `.gitignore` if they are not already ignored.
 2. **Establish the noise margin.** Run eval_cmd twice on the unmodified
    baseline and log both runs:
    `python3 amr.py log 0 <short-commit> - <score> ran "baseline run N"`.
