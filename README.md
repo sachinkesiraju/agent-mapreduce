@@ -75,7 +75,7 @@ Then start a coding agent in that repo and say:
 Read program.md and set up a new recursive agentic map-reduce experiment. Do the setup first, then begin the loop.
 ```
 
-Or install it as a Claude Code skill: copy [skills/agent-mapreduce/](skills/agent-mapreduce/) into `~/.claude/skills/`, then say `/agent-mapreduce` in any repo. The skill is self-contained — it carries its own copies of `program.md` and `amr.py`, copies them into the target repo, fills the params, and starts the loop.
+Or install it as a Claude Code skill: copy [skills/agent-mapreduce/](skills/agent-mapreduce/) into `~/.claude/skills/`, then say `/agent-mapreduce` in any repo.
 
 ## A worked generation
 
