@@ -2,7 +2,7 @@
 
 Autoresearch as recursive agentic map-reduce.
 
-[Karpathy's autoresearch](https://github.com/karpathy/autoresearch) loop tests one idea at a time:
+Karpathy's autoresearch loop tests one idea at a time:
 
 ```text
 one idea -> eval -> keep/revert -> repeat
@@ -133,7 +133,7 @@ python3 amr.py tree [--maximize]
 
 All state lives in `results.tsv` (append-only) and git. A crashed or interrupted run resumes from those two alone.
 
-Prompt optimization is the same loop with different params — workers edit `prompt.md`, the evaluator stays fixed, reduce with `--maximize`. See [example/prompt-optimization.md](example/prompt-optimization.md) for a full two-generation walkthrough.
+The loop is domain-agnostic. [example/prompt-optimization.md](example/prompt-optimization.md) tunes a prompt file (workers edit `prompt.md`, reduce with `--maximize`), and [example/text-classification.md](example/text-classification.md) has the agent propose whole different algorithms (lexicon vs Naive Bayes vs logistic regression) and keep whichever the eval prefers. Both are full multi-generation walkthroughs.
 
 ## Why use this over autoresearch?
 
