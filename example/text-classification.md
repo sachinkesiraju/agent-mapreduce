@@ -132,7 +132,18 @@ mostly mis-fires. A greedy loop that tried negation first might have anchored
 on it; comparing siblings against the same parent caught it. The two survivors
 sit in disjoint regions, so reduce suggests an ensemble.
 
-Generation 2 tried the ensemble plus three refinements, and stalled:
+Generation 2 recurses. The agent takes each surviving branch and proposes new
+ideas *from that parent*, not from the baseline: the `fulllex` line gets a
+data-mined lexicon, the `nbayes` line gets bigrams and stopword removal, and
+the fuse candidate reduce suggested becomes its own branch off `nbayes`. Note
+the parent commit in each row, that is the recursion:
+
+```bash
+python3 amr.py log --region lexicon,model 2 ensemble nbayes  0.920000 ran "ensemble: full lexicon + naive bayes"
+python3 amr.py log --region lexicon       2 minedlex fulllex 0.920000 ran "data-mined log-odds lexicon"
+python3 amr.py log --region model         2 nbbigram nbayes  0.900000 ran "naive bayes + bigrams"
+python3 amr.py log --region model         2 nbstop   nbayes  0.920000 ran "naive bayes minus stopwords"
+```
 
 ```bash
 $ python3 amr.py reduce --gen 2 --beam 2 --margin 0.0067 --maximize
@@ -141,7 +152,7 @@ STALL: no candidate beat its parent by more than the margin. Frontier unchanged.
 FRONTIER: nbayes fulllex
 ```
 
-The ensemble, a data-mined lexicon, and stopword removal all tied 0.92;
+The ensemble, the data-mined lexicon, and stopword removal all tied 0.92;
 bigram features scored 0.90 and hurt. That flat result is the signal: with 8%
 label noise, ~0.92 is the ceiling. The honest move is to record it, not to
 keep tuning into the noise:
@@ -150,10 +161,27 @@ keep tuning into the noise:
 python3 amr.py log 2 - - - note "LAW: gen-2 refinements all sit at ~0.92 = the 8% label-noise ceiling; no headroom above the gen-1 lexicon/NB tie"
 ```
 
-On the holdout split both survivors scored 0.946667 against the baseline's
-0.673333, so the win is real, not overfit to the test set. The lexicon and
-Naive Bayes tie, so the simplicity criterion ships the lexicon: six lines, no
-training.
+The whole search, two generations deep, is one tree:
+
+```text
+$ python3 amr.py tree --maximize
+base  0.706667  baseline run 1
+├── fulllex  0.920000  full 16-word lexicon vote
+│   └── minedlex  0.920000  data-mined log-odds lexicon
+├── nbayes  0.920000  naive bayes, laplace smoothing
+│   ├── ensemble  0.920000  ensemble: full lexicon + naive bayes
+│   ├── nbbigram  0.900000  naive bayes + bigrams
+│   └── nbstop  0.920000  naive bayes minus stopwords
+├── negation  0.866667  negation-aware lexicon
+└── logreg  0.860000  logistic regression from scratch
+```
+
+The two surviving branches each spawned their own children; the pruned
+`negation` and `logreg` ideas stay in the tree as dead ends, never recursed
+into. On the holdout split both survivors scored 0.946667 against the
+baseline's 0.673333, so the win is real, not overfit to the test set. The
+lexicon and Naive Bayes tie, so the simplicity criterion ships the lexicon:
+six lines, no training.
 
 ## Worker prompt template
 
