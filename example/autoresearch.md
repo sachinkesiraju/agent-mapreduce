@@ -19,6 +19,7 @@ Execute `program.md` with the parameters and domain rules below.
 | B            | 2 |
 | eval_slots   | number of GPUs (1 on a single-GPU box — implementations may overlap, but training runs must queue) |
 | timeout      | 10 minutes per eval (training is budgeted at 5; kill and log as crash beyond 10) |
+| cost_guard   | `peak_vram_mb:+0.15` unless you intentionally allow more memory |
 | holdout_cmd  | none — `evaluate_bpb` in `prepare.py` is the single ground-truth metric; finishing re-runs eval_cmd on baseline and champion |
 | tag          | date-based, e.g. `jul6` |
 
@@ -34,11 +35,58 @@ instead of one greedy line.
 - `prepare.py` is read-only: it holds the fixed eval, data loading, tokenizer,
   and training constants. The eval is the ground truth; never touch it.
 - No new packages or dependencies beyond `pyproject.toml`.
-- VRAM is a soft constraint: also extract `grep '^peak_vram_mb:' run.log` and
-  include it in the tsv description; judge dramatic blowups as losses even
-  when val_bpb improves.
+- VRAM is a cost guard: extract `grep '^peak_vram_mb:' run.log`, log it with
+  `--cost peak_vram_mb=<value>`, and reduce with `--cost peak_vram_mb:+0.15`
+  unless you intentionally allow more memory.
 - Simplicity criterion: a 0.001 gain that adds 20 lines of hacky code is
   probably not worth it; an equal result from deleted code is a keep.
+
+## What a first generation might look like
+
+Four single-variable ideas from the baseline, each tagged with the region it
+touches:
+
+```bash
+python3 amr.py log --cost peak_vram_mb=44100 --region optimizer    1 lr00400 base000 0.993200 ran "increase LR 0.02 -> 0.04"
+python3 amr.py log --cost peak_vram_mb=44050 --region architecture 1 gelu000 base000 0.996000 ran "replace SiLU with GeLU"
+python3 amr.py log --cost peak_vram_mb=44100 --region optimizer    1 warmup0 base000 0.997950 ran "add 100-step LR warmup"
+python3 amr.py log --cost peak_vram_mb=79800 --region architecture 1 wide000 base000 -        crash "double d_model, OOM at step 40"
+
+python3 amr.py reduce --gen 1 --beam 2 --margin 0.0002 --cost peak_vram_mb:+0.15
+```
+
+`lr00400` and `gelu000` survive; `warmup0` is within the noise margin and
+dies; `wide000` crashed. Because the survivors touch disjoint regions
+(optimizer, architecture), reduce prints a `FUSE_CANDIDATE` line: try
+LR 0.04 + GeLU as one extra candidate in generation 2. The OOM crash is worth
+a law: `python3 amr.py log 1 - - - note "LAW: 2x d_model OOMs on this GPU"`.
+
+## Generation 2, and the fuse paying off
+
+Gen 2 recurses from both survivors and adds the suggested combination. Each
+child is scored against its own parent:
+
+```bash
+python3 amr.py log --cost peak_vram_mb=44150 --region architecture,optimizer 2 fuse000 lr00400 0.991800 ran "LR 0.04 + GeLU (fuse candidate)"
+python3 amr.py log --cost peak_vram_mb=44100 --region optimizer              2 cos0000 lr00400 0.993100 ran "cosine LR decay"
+python3 amr.py log --cost peak_vram_mb=52000 --region architecture           2 qknorm0 gelu000 0.994500 ran "add QK-norm"
+python3 amr.py log --cost peak_vram_mb=44050 --region regularization         2 drop010 gelu000 0.995950 ran "dropout 0.1"
+```
+
+```bash
+$ python3 amr.py reduce --gen 2 --beam 2 --margin 0.0002 --cost peak_vram_mb:+0.15
+COST_FAIL	qknorm0	peak_vram_mb 52000 > 50657.5	add QK-norm
+gen 2: 4 candidates, 1 beat their parent (margin 0.0002, 1 failed cost guards), keeping 1
+KEEP	fuse000	0.991800	(parent lr00400, delta -0.001400)	LR 0.04 + GeLU (fuse candidate)	regions=architecture,optimizer
+FRONTIER: fuse000
+```
+
+Three things happen at once here. The fuse candidate is the best node in the
+tree, so combining the two gen-1 branches actually paid off, which is not a
+given. `qknorm0` improved on its parent but asked for 18% more VRAM, over the
+15% guard, so `COST_FAIL` drops it before it can be ranked. `cos0000` and
+`drop010` land inside the noise margin and die. Only `fuse000` survives, so the
+beam narrows to one and the search continues down the combined line.
 
 ## Worker prompt template
 
@@ -51,4 +99,5 @@ instead of one greedy line.
 > and re-run once.
 
 The orchestrator (you) then greps `run.log` in each worktree, logs each result
-with `amr.py log`, and reduces.
+with `amr.py log --cost peak_vram_mb=<value> --region <region>`, and reduces
+with `--cost peak_vram_mb:+0.15`.
