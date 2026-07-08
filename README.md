@@ -24,7 +24,7 @@ The repo has three important pieces:
 
 - `program.md` — instructions for the agent. Edit this for your domain.
 - `amr.py` — stdlib-only helper: `log`, `reduce`, `tree`.
-- `example/` — concrete setups for autoresearch and prompt optimization.
+- `example/` — three concrete setups: ML training, prompt optimization, and choosing between whole algorithms.
 
 The loop:
 
